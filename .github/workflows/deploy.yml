@@ -3,6 +3,12 @@ name: Deploy to AWS Elastic Beanstalk
 on:
   push:
     branches: [deploy/aws-eb]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'ENVIRONMENT name (Example: prod)'
+        default: 'prod'
+        required: false    
 
 env:
   AWS_REGION: us-east-1
