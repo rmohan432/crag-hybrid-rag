@@ -76,17 +76,15 @@ COPY --from=builder --chown=appuser:appuser /root/.cache /home/appuser/.cache
 ENV PATH="/app/.venv/bin:$PATH" \
     HF_HOME="/home/appuser/.cache/huggingface"
 
-# Diagnose torchvision._C shared-library dependencies so we know what's missing.
-RUN /app/.venv/bin/python -c "\
-import pathlib, subprocess, sys; \
-so = next(pathlib.Path('/app/.venv/lib/python3.12/site-packages/torchvision').glob('_C*.so'), None); \
-print('_C.so:', so); \
-print(subprocess.run(['ldd', str(so)], capture_output=True, text=True).stdout if so else 'no _C.so found')" \
-  && /app/.venv/bin/python -c "\
-import ctypes, pathlib; \
-so = next(pathlib.Path('/app/.venv/lib/python3.12/site-packages/torchvision').glob('_C*.so'), None); \
-print(ctypes.CDLL(str(so))) if so else print('no _C.so')" \
-  || true
+# torchvision/_meta_registrations.py registers abstract (fake) op implementations
+# used exclusively by torch.compile() / FakeTensorMode. Our app does not use
+# torch.compile(), so these registrations are unnecessary. In CPU-only builds,
+# torchvision._C.so is a plain shared library loaded lazily by torchvision.ops,
+# but _meta_registrations is imported before ops in __init__.py, so the
+# torchvision::nms op is not yet in the dispatch table when register_fake runs.
+# Emptying the file eliminates the import-order crash without any runtime impact.
+RUN echo "# disabled: not needed for inference-only CPU deployment" \
+    > /app/.venv/lib/python3.12/site-packages/torchvision/_meta_registrations.py
 
 # Verify critical imports work in this runtime environment — fails the build
 # with the actual error if torch or sentence-transformers can't be loaded.
