@@ -2,7 +2,10 @@ name: Deploy to AWS Elastic Beanstalk
 
 on:
   push:
-    branches: [deploy/aws-eb]
+    branches: 
+      - deploy/aws-eb
+      - main
+      
   workflow_dispatch:
     inputs:
       environment:
